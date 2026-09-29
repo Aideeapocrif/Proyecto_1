@@ -61,6 +61,9 @@ class Cliente : public Observador{
 
             //Identificamos con el servidor. 
             std::string identify = "{ \"type\": \"IDENTIFY\", \"username\": \"" + this->nombre + "\" }\n";
+            send(clientSocket, message.c_str(), identify.size(), 0)
+
+
 
         }else{ 
             std::cout << "La longitud de tu nombre debe ser menor o igual a  8 caractares.  " << std::endl;
@@ -228,4 +231,4 @@ class Cliente : public Observador{
 
 }; 
 
- #endif //CLIENTE_HPP
+#endif //CLIENTE_HPP
