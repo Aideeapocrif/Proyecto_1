@@ -2,61 +2,142 @@
 #include "Cuarto.hpp"
 
 
-void Servidor::respuesta(){
+
+
+
+void Servidor::conexion(){
+    while (true) {
+      // cuando un cliente hace conect accept es quien lo enlaza con el servidor. 
+      int socketCliente = accept(socketServidor, nullptr, nullptr);
+      std::thread(&Servidor::entradaUsuario, this, socketCliente).detach(); 
+    }
+        
+}
+
+json Servidor::recibo(int socketParam){
+   
+    char buffer[1024];
+    int bytesRecibidos = recv(socketParam, buffer, sizeof(buffer) - 1, 0);
+    if (bytesRecibidos > 0) {
+       buffer[bytesRecibidos] = '\0';
+       std::string mensaje(buffer, bytesRecibidos);
+       nlohmann::json datos = nlohmann::json::parse(mensaje);
+       return datos;
+    }
+   return nullptr;
+}
+
+void Servidor::respuesta(std::vector<Cliente> PersonasEnviar, std::string msg){
+
+    if (PersonasEnviar.size() == listaConectados.size()) {
+       std::lock_guard<std::mutex> lock(mtx);
+       for(int j = 0; j < listaConectados.size(); j++){
+         send(listaConectados.socketCliente, msg.c_str(), msg.size(), 0);
+       }
+    }else{
+        for (int i = 0; i < PersonasEnviar.size(); i++){
+            std::lock_guard<std::mutex> lock(mtx);
+            for(int j = 0; j < listaConectados.size(); j++){
+              if (PersonasEnviar.getNombre() == listaConectados.nombreCliente){
+                 send(listaConectados.socketCliente, msg.c_str(), msg.size(), 0);
+              }
+            }
+        }
+    }
+
+void Servidor::entradaUsuario(int socketCliente){
+    json datos = recibo(socketCliente);
+
+      if (datos["type"] == "IDENTIFY"){
+          conectClienteSocket relacionClieSocket(datos["username"], socketCliente);
+          std::lock_guard<std::mutex> lock(mtx);
+          listaConectados.push_back(relacionClieSocket);
+
+      }else if(datos["type"] == "TEXT"){
+        std::string json  = mandarMensaje(datos["text"], datos["username"]);
+        respuesta(datos["username"], json)
+
+
+      }else if(datos["type"] == "STATUS"){
+        std::string json = nuevoEstatus(buscarNombre(socketCliente) , datos["status"]);
+        respuesta(listClientes, json);
+          
+      }else if(datos["type"] == "USERS"){
+        std::string json = usuariosList(); 
+        respuesta(buscarNombre(socketCliente), json); 
+
+      }else if(datos["type"] == "PUBLIC_TEXT"){
+         
+
+      }else if(datos["type"] == "NEW_ROOM"){
+          
+      }else if(datos["type"] == "INVITE"){
+          
+      }else if(datos["type"] == "JOIN_ROOM"){
+          
+      }else if(datos["type"] == "ROOM_USERS"){
+          
+      }else if(datos["type"] == "ROOM_TEXT"){
+          
+      }else if(datos["type"] == "LEAVE_ROOM"){
+          
+      }else if(datos["type"] == "DISCONNECT"){
+          
+      }else {
+
+      }
 
 }
 
 
-bool Servidor::existeElUsuario(Cliente usuario){
 
-    for (const auto& it : listClientes) {
-        if (*it == usuario) {
+
+std::string buscarNombre(int socketParam){
+    for(size_t i = 0; i < listaConectados.size(); i++){
+        if(listaConectados[i].socketCliente == socketParam){
+            return listaConectados[i].nombreCliente;
+        }
+    }
+}
+
+
+int buscarSocket(std::string nombre){
+    for(size_t i = 0; i < listaConectados.size(); i++){
+        if(listaConectados[i].nombreCliente == nombre){
+            return listaConectados[i].socketCliente;
+        }
+    }
+}
+
+bool Servidor::existeElUsuario(Cliente usuario){
+    for (const auto& este : listClientes) {
+        if (*este == usuario) {
             return true;
         }
     }
-
     return false;
 }
 
 
 bool Servidor::existeElCuarto(Cuarto sala){
 
-    for (const auto& it : listCuartos) {
-        if ((*it).getNombre() == sala.getNombre()) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-
-bool Servidor::verExisUsuario(Cliente usuario){
-    return existeElUsuario(usuario);
-}
-
-
-bool Servidor::fueInvitado(Cliente usuario){
-    for (const auto& cuarto : listCuartos){
-        if (cuarto->fueInvitado(usuario)){
+    for (const auto& este : listCuartos) {
+        if (*este == sala) {
             return true;
         }
     }
     return false;
 }
+
 
 
 std::string Servidor::nuevoUsuario(std::string nombre){
-
     return "{ \"type\": \"NEW_USER\", "
-           "\"username\": \"" + nombre + "\" }\n";
+             "\"username\": \"" + nombre + "\" }\n";
 }
 
 
-std::string Servidor::nuevoStatus(
-    std::string nombre,
-    std::string estatus
-){
+std::string Servidor::nuevoStatus(std::string nombre,std::string estatus){
 
     return "{ \"type\": \"NEW_STATUS\", "
            "\"username\": \"" + nombre + "\", "
@@ -64,83 +145,63 @@ std::string Servidor::nuevoStatus(
 }
 
 
-std::string Servidor::usuariosList(
-    std::vector<std::string> listaUsuarios
-){
+std::string Servidor::usuariosList(){
 
-    std::string usersJson;
+    std::string usuariosJSON;
 
-    for (size_t i = 0; i < listaUsuarios.size(); ++i){
-
-        usersJson += "\"" + listaUsuarios[i] + "\"";
-
-        if (i != listaUsuarios.size() - 1){
-            usersJson += ", ";
+    for (size_t i = 0; i < listUsuarios.size(); ++i){
+        usuariosJSON += "\"" + listUsuarios[i] + "\"";
+        if (i != listUsuarios.size() - 1){
+            usuariosJSON += ", ";
         }
     }
 
     return "{ \"type\": \"USER_LIST\", "
-           "\"users\": [" + usersJson + "] }\n";
+             "\"users\": [" + usuariosJSON + "] }\n";
 }
 
 
-std::string Servidor::mandarMensaje(
-    std::string msg,
-    Cliente usuario
-){
+std::string Servidor::mandarMensaje(std::string msg, Cliente usuario){
 
     if (existeElUsuario(usuario)){
 
         return "{ \"type\": \"TEXT_FROM\", "
-               "\"username\": \"" + usuario.getNombre() + "\", "
-               "\"text\": \"" + msg + "\" }\n";
+                 "\"username\": \"" + usuario.getNombre() + "\", "
+                 "\"text\": \"" + msg + "\" }\n";
 
     }else{
 
         return "{ \"type\": \"RESPONSE\", "
-               "\"operation\": \"TEXT\", "
-               "\"result\": \"NO_SUCH_USER\", "
-               "\"extra\": \"" + usuario.getNombre() + "\" }\n";
+                 "\"operation\": \"TEXT\", "
+                 "\"result\": \"NO_SUCH_USER\", "
+                 "\"extra\": \"" + usuario.getNombre() + "\" }\n";
     }
 }
 
 
-std::string Servidor::mandarMensajePublico(
-    std::string msg,
-    Cliente usuario
-){
+std::string Servidor::mandarMensajePublico( std::string msg, Cliente usuario){
 
     return "{ \"type\": \"PUBLIC_TEXT_FROM\", "
-           "\"username\": \"" + usuario.getNombre() + "\", "
-           "\"text\": \"" + msg + "\" }\n";
+             "\"username\": \"" + usuario.getNombre() + "\", "
+             "\"text\": \"" + msg + "\" }\n";
 }
 
 
-std::string Servidor::mandarMensajeCuarto(
-    std::string msg,
-    Cuarto sala,
-    Cliente usuario
-){
+std::string Servidor::mandarMensajeCuarto( std::string msg, Cuarto sala, Cliente usuario){
 
-    for (const auto& cuarto : listCuartos){
-
-        if (cuarto->getNombre() == sala.getNombre()){
-
-            if (cuarto->saberPersonaEsta(usuario.getNombre())){
-
-                return "{ \"type\": \"ROOM_TEXT_FROM\", "
-                       "\"roomname\": \"" + sala.getNombre() + "\", "
-                       "\"username\": \"" + usuario.getNombre() + "\", "
-                       "\"text\": \"" + msg + "\" }\n";
-
-            }else{
-
-                return "{ \"type\": \"RESPONSE\", "
-                       "\"operation\": \"ROOM_TEXT\", "
-                       "\"result\": \"NOT_JOINED\", "
-                       "\"extra\": \"" + sala.getNombre() + "\" }\n";
-            }
-        }
+    if (existeElCuarto(sala)){
+       if (existeElUsuario(usuario)){
+          return "{ \"type\": \"ROOM_TEXT_FROM\", "
+                   "\"roomname\": \"" + sala.getNombre() + "\", "
+                   "\"username\": \"" + usuario.getNombre() + "\", "
+                   "\"text\": \"" + msg + "\" }\n";
+       }else{
+          return "{ \"type\": \"RESPONSE\", "
+                     "\"operation\": \"ROOM_TEXT\", "
+                     "\"result\": \"NOT_JOINED\", "
+                     "\"extra\": \"" + sala.getNombre() + "\" }\n";
+       }
+        
     }
 
     return "{ \"type\": \"RESPONSE\", "
@@ -150,14 +211,10 @@ std::string Servidor::mandarMensajeCuarto(
 }
 
 
-std::string Servidor::respuestaNuevoCuarto(
-    std::string cuartoNuevo
-){
+std::string Servidor::respuestaNuevoCuarto(std::string cuartoNuevo){
 
     for (const auto& cuarto : listCuartos){
-
         if (cuarto->getNombre() == cuartoNuevo){
-
             return "{ \"type\": \"RESPONSE\", "
                    "\"operation\": \"NEW_ROOM\", "
                    "\"result\": \"ROOM_ALREADY_EXISTS\", "
@@ -165,9 +222,7 @@ std::string Servidor::respuestaNuevoCuarto(
         }
     }
 
-    listCuartos.push_back(
-        std::make_unique<Cuarto>(cuartoNuevo)
-    );
+    listCuartos.push_back(std::make_unique<Cuarto>(cuartoNuevo));
 
     return "{ \"type\": \"RESPONSE\", "
            "\"operation\": \"NEW_ROOM\", "
@@ -176,24 +231,15 @@ std::string Servidor::respuestaNuevoCuarto(
 }
 
 
-std::string Servidor::invitacion(
-    Cuarto sala,
-    std::vector<Cliente> listaUsuarios
-){
+std::string Servidor::invitacion(Cuarto sala, std::vector<Cliente> listaUsuarios){
 
     Cuarto* cuartoPtr = nullptr;
-
-    for (const auto& cuarto : listCuartos){
-
-        if (cuarto->getNombre() == sala.getNombre()){
-
-            cuartoPtr = cuarto.get();
-            break;
-        }
+    if (existeElCuarto(sala)){
+        cuartoPtr = sala;
+        break;
     }
 
     if (!cuartoPtr){
-
         return "{ \"type\": \"RESPONSE\", "
                "\"operation\": \"INVITE\", "
                "\"result\": \"NO_SUCH_ROOM\", "
@@ -201,26 +247,21 @@ std::string Servidor::invitacion(
     }
 
     for (const auto& usuario : listaUsuarios){
-
         bool encontrado = false;
-
-        for (const auto& cliente : listClientes){
-
-            if (cliente->getNombre() == usuario.getNombre()){
-
+        if (existeElUsuario(usuario)){
                 encontrado = true;
                 break;
             }
-        }
+    
 
         if (!encontrado){
-
             return "{ \"type\": \"RESPONSE\", "
                    "\"operation\": \"INVITE\", "
                    "\"result\": \"NO_SUCH_USER\", "
                    "\"extra\": \"" + usuario.getNombre() + "\" }\n";
         }
     }
+    
 
     std::string retorno;
 
@@ -238,24 +279,16 @@ std::string Servidor::invitacion(
 }
 
 
-std::string Servidor::seUnioCuarto(
-    Cliente usuario,
-    Cuarto sala
-){
+std::string Servidor::seUnioCuarto(Cliente usuario, Cuarto sala){
 
     Cuarto* cuartoPtr = nullptr;
-
-    for (const auto& cuarto : listCuartos){
-
-        if (cuarto->getNombre() == sala.getNombre()){
-
-            cuartoPtr = cuarto.get();
+        if (existeElCuarto(sala)){
+            cuartoPtr = sala;
             break;
         }
-    }
+    
 
     if (!cuartoPtr){
-
         return "{ \"type\": \"RESPONSE\", "
                "\"operation\": \"JOIN_ROOM\", "
                "\"result\": \"NO_SUCH_ROOM\", "
@@ -265,46 +298,38 @@ std::string Servidor::seUnioCuarto(
     if (!existeElUsuario(usuario)){
 
         return "{ \"type\": \"RESPONSE\", "
-               "\"operation\": \"JOIN_ROOM\", "
-               "\"result\": \"NO_SUCH_ROOM\", "
-               "\"extra\": \"" + sala.getNombre() + "\" }\n";
+                 "\"operation\": \"JOIN_ROOM\", "
+                 "\"result\": \"NO_SUCH_ROOM\", "
+                 "\"extra\": \"" + sala.getNombre() + "\" }\n";
     }
 
     if (!fueInvitado(usuario)){
 
         return "{ \"type\": \"RESPONSE\", "
-               "\"operation\": \"JOIN_ROOM\", "
-               "\"result\": \"NOT_INVITED\", "
-               "\"extra\": \"" + sala.getNombre() + "\" }\n";
+                 "\"operation\": \"JOIN_ROOM\", "
+                 "\"result\": \"NOT_INVITED\", "
+                 "\"extra\": \"" + sala.getNombre() + "\" }\n";
     }
 
-    std::string addResult = cuartoPtr->agregarPersona(usuario);
+    std::string agregarUsuario = cuartoPtr->agregarPersona(usuario);
 
-    return addResult +
+    return agregarUsuario +
            "{ \"type\": \"JOINED_ROOM\", "
            "\"roomname\": \"" + sala.getNombre() + "\", "
            "\"username\": \"" + usuario.getNombre() + "\" }\n";
 }
 
 
-std::string Servidor::listaUsuariosCuarto(
-    Cuarto sala,
-    Cliente usuario
-){
+std::string Servidor::listaUsuariosCuarto( Cuarto sala, Cliente usuario){
 
     Cuarto* cuartoPtr = nullptr;
-
-    for (const auto& cuarto : listCuartos){
-
-        if (cuarto->getNombre() == sala.getNombre()){
-
-            cuartoPtr = cuarto.get();
+    if (existeElCuarto(sala)){
+            cuartoPtr = sala;
             break;
         }
     }
 
     if (!cuartoPtr){
-
         return "{ \"type\": \"RESPONSE\", "
                "\"operation\": \"ROOM_USERS\", "
                "\"result\": \"NO_SUCH_ROOM\", "
@@ -312,7 +337,6 @@ std::string Servidor::listaUsuariosCuarto(
     }
 
     if (!cuartoPtr->saberPersonaEsta(usuario.getNombre())){
-
         return "{ \"type\": \"RESPONSE\", "
                "\"operation\": \"ROOM_USERS\", "
                "\"result\": \"NOT_JOINED\", "
@@ -323,24 +347,16 @@ std::string Servidor::listaUsuariosCuarto(
 }
 
 
-std::string Servidor::abandonarCuarto(
-    Cliente usuario,
-    Cuarto sala
-){
+std::string Servidor::abandonarCuarto( Cliente usuario, Cuarto sala){
 
     Cuarto* cuartoPtr = nullptr;
 
-    for (const auto& cuarto : listCuartos){
-
-        if (cuarto->getNombre() == sala.getNombre()){
-
-            cuartoPtr = cuarto.get();
+     if (existeElCuarto(sala)){
+            cuartoPtr = sala;
             break;
-        }
     }
 
     if (!cuartoPtr){
-
         return "{ \"type\": \"RESPONSE\", "
                "\"operation\": \"LEAVE_ROOM\", "
                "\"result\": \"NO_SUCH_ROOM\", "
@@ -348,30 +364,24 @@ std::string Servidor::abandonarCuarto(
     }
 
     if (cuartoPtr->sacarPersona(usuario)){
-
         return "{ \"type\": \"LEFT_ROOM\", "
-               "\"roomname\": \"" + sala.getNombre() + "\", "
-               "\"username\": \"" + usuario.getNombre() + "\" }\n";
+                 "\"roomname\": \"" + sala.getNombre() + "\", "
+                 "\"username\": \"" + usuario.getNombre() + "\" }\n";
 
     }else{
-
         return "{ \"type\": \"RESPONSE\", "
-               "\"operation\": \"LEAVE_ROOM\", "
-               "\"result\": \"NOT_JOINED\", "
-               "\"extra\": \"" + sala.getNombre() + "\" }\n";
+                 "\"operation\": \"LEAVE_ROOM\", "
+                 "\"result\": \"NOT_JOINED\", "
+                 "\"extra\": \"" + sala.getNombre() + "\" }\n";
     }
 }
 
 
 void Servidor::eliminarCuarto(Cuarto sala){
 
-    for (auto it = listCuartos.begin();
-         it != listCuartos.end();
-         ++it){
-
-        if ((*it)->getNombre() == sala.getNombre()){
-
-            listCuartos.erase(it);
+    for (auto este = listCuartos.begin();   este != listCuartos.end();   ++este){
+        if ((*este)->getNombre() == sala.getNombre()){
+            listCuartos.erase(este);
             break;
         }
     }
@@ -379,7 +389,6 @@ void Servidor::eliminarCuarto(Cuarto sala){
 
 
 std::string Servidor::desconectado(Cliente usuario){
-
     return "{ \"type\": \"DISCONNECTED\", "
-           "\"username\": \"" + usuario.getNombre() + "\" }\n";
+             "\"username\": \"" + usuario.getNombre() + "\" }\n";
 }
