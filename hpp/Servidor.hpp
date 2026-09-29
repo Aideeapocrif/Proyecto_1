@@ -8,6 +8,8 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <thread>
+#include <mutex>
 
 //Libreria para json
 #include <nlohmann/json.hpp>
@@ -18,6 +20,17 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+struct conectClienteSocket{
+  public: 
+   std::string nombreCliente; 
+   int socketCliente; 
+
+   conectClienteSocket(std::string nombreCliente, int socketCliente) : 
+   nombreCliente(nombreCliente), socketCliente(socketCliente) {}
+
+  
+}
+
 class Cuarto;
 class Servidor : public Sujeto{
 
@@ -26,6 +39,8 @@ class Servidor : public Sujeto{
      std::vector<std::unique_ptr<Cliente>> listClientes; 
      std::vector<std::unique_ptr<Cuarto>> listCuartos; 
      int socketServidor;
+     std::mutex mtx;
+     std::vector<conectClienteSocket> listaConectados; 
 
 
     public: 
@@ -52,20 +67,38 @@ class Servidor : public Sujeto{
 
             //Convertimos este socket a uno de escucha 
             listen(socketServidor, 10);
-          
-            /*
-            while (true) {
 
-              // cuando un cliente hace conect accept es quien lo enlaza con el servidor. 
-              int socketCliente = accept(socketServidor, nullptr, nullptr);
-
-            
-             }
-              */
-
+            conexion();
+    
      }
 
-    
+     /**
+     * @brief buscarNombre; se encarga de buscar el nombre en base al socket de la lista de listaConectados 
+     * @param El socket de la relación socket-cliente
+     * @return El nombre de la relación 
+     */
+     std::string buscarNombre(int socketParam);
+
+      /**
+     * @brief buscarSocket; se encarga de buscar el socket en base al nombre de la lista de listaConectados
+     * @param El nombre de la relación socket-cliente
+     * @return El socket de la relación. 
+     */
+     int buscarSocket(std::string nombre);
+
+     /**
+     * @brief entradaUsuario; se encarga de mandar a llamar a recibo pero desde un thread  
+     * @param El socket de donde viene. 
+     * @return nada
+     */
+     void entradaUsuario(int socketParam);
+
+     /**
+     * @brief recibo; recibe los mensaje de los clientes  
+     * @param El socket de donde viene. 
+     * @return El json respectivo a el socket. 
+     */
+     json recibo(int socketParam)
 
      /**
      * @brief respuesta; es parte del la interface(Sujeto) manda la respuesta a los usuarios 
@@ -73,6 +106,14 @@ class Servidor : public Sujeto{
      * @return Sin retorno. 
      */
      void respuesta() override;
+
+     /**
+     * @brief conexion; método que checa conexiones constantemente para agregar. 
+     * @param Sin parametros. 
+     * @return Sin retorno. 
+     */
+     void conexion(); 
+
      
     /**
      * @brief existeElUsuario; permite saber si el usuario esta en la lista del servidor
@@ -88,14 +129,6 @@ class Servidor : public Sujeto{
      */
      bool existeElCuarto(Cuarto sala);
 
-     
-
-     /**
-     * @brief verExisUsuario; Verifica si ya hay un usuario con ese nombre. 
-     * @param El nombre del usuario 
-     * @return string con formato json 
-     */
-     bool verExisUsuario(Cliente usuario);
 
      /**
      * @brief fueInvitado; Verifica si un usuario fue invitado a un cuarto
@@ -123,7 +156,7 @@ class Servidor : public Sujeto{
      * @param sin parametros
      * @return  string de tipo json 
      */
-     std::string usuariosList(std::vector<std::string> listaUsuarios); 
+     std::string usuariosList(); 
 
      /**
      * @brief mandarMensaje; manda un mensaje a cierta persona 
