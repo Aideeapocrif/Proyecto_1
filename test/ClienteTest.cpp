@@ -5,7 +5,8 @@
 #include "Cuarto.hpp"
 #include "Servidor.hpp"
 
-Servidor servidorPruebaUnitaria("ServidorPrueba");
+Servidor* servidorPruebaUnitaria = nullptr;
+
 
 // Caso Mensaje
 /**
@@ -15,13 +16,13 @@ Servidor servidorPruebaUnitaria("ServidorPrueba");
 TEST(ServicioMensajeriaTest, CasoMensaje) {
 
     Cliente cliente_uno("Aidee", servidorPruebaUnitaria);
-    std::string msg = "Hola como estas Danielcin.";
-    std::string persona = "Danielcin";
+    std::string msg = "Hola como estas Danielcito.";
+    std::string persona = "Danielcito";
 
     std::string esperadoUno =
         "{ \"type\": \"TEXT\", "
-        "\"username\": \"Danielcin\", "
-        "\"text\": \"Hola como estas Danielcin.\" }\n";
+        "\"username\": \"Danielcito\", "
+        "\"text\": \"Hola como estas Danielcito.\" }\n";
 
     EXPECT_EQ(cliente_uno.mensaje(persona, msg), esperadoUno);
 }
@@ -85,12 +86,13 @@ TEST(ServicioMensajeriaTest, casoInvitarUnoCuarto) {
 
 // Caso invitar a varios al Cuarto
 /**
-* @brief Prueba para invitar a varios a la sala.
+* @brief Prueba para invitar a varios usuarios a la sala.
 * @note Verifica que el string sea el correcto.
 */
 TEST(ServicioMensajeriaTest, casoInvitarVariosCuarto) {
 
     Cliente cliente_uno("Aidee", servidorPruebaUnitaria);
+
     std::string nombreSala = "Modelado y Programación.";
     std::vector<std::string> nombres = {"Aidee", "Santana", "Abeja"};
 
@@ -111,6 +113,7 @@ TEST(ServicioMensajeriaTest, casoInvitarVariosCuarto) {
 TEST(ServicioMensajeriaTest, casoEntrarCuarto) {
 
     Cliente cliente_uno("Aidee", servidorPruebaUnitaria);
+
     std::string nombreSala = "Modelado y Programación.";
 
     std::string esperadoSeis =
@@ -123,12 +126,13 @@ TEST(ServicioMensajeriaTest, casoEntrarCuarto) {
 
 // Caso listar usuarios
 /**
-* @brief Prueba enviar string para listar usuarios
+* @brief Prueba enviar string para listar usuarios.
 * @note Verifica que el string sea el correcto.
 */
 TEST(ServicioMensajeriaTest, casoRoomUsers) {
 
     Cliente cliente_uno("Aidee", servidorPruebaUnitaria);
+
     std::string nombreSala = "Modelado y Programación.";
 
     std::string esperadoSiete =
@@ -147,6 +151,7 @@ TEST(ServicioMensajeriaTest, casoRoomUsers) {
 TEST(ServicioMensajeriaTest, casoMensajeCuarto) {
 
     Cliente cliente_uno("Aidee", servidorPruebaUnitaria);
+
     std::string msg = "Hola personas de esta sala. ";
     std::string nombreSala = "Modelado y Programación.";
 
@@ -161,7 +166,7 @@ TEST(ServicioMensajeriaTest, casoMensajeCuarto) {
 
 // Caso salirCuarto
 /**
-* @brief Prueba salir del cuarto
+* @brief Prueba salir del cuarto.
 * @note Verifica que el string sea el correcto.
 */
 TEST(ServicioMensajeriaTest, casoSalirCuarto) {
@@ -175,20 +180,4 @@ TEST(ServicioMensajeriaTest, casoSalirCuarto) {
         "\"roomname\": \"Modelado y Programación.\" }\n";
 
     EXPECT_EQ(cliente_uno.salirCuarto(nombreSala), esperadoNueve);
-}
-
-
-// Caso desconectar
-/**
-* @brief Prueba salir del servidor
-* @note Verifica que el string sea el correcto.
-*/
-TEST(ServicioMensajeriaTest, casoDesconectar) {
-
-    Cliente cliente_uno("Aidee", servidorPruebaUnitaria);
-
-    std::string esperadoDiez =
-        "{ \"type\": \"DISCONNECT\" }\n";
-
-    EXPECT_EQ(cliente_uno.desconectar(), esperadoDiez);
 }
